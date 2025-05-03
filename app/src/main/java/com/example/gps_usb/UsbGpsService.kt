@@ -11,11 +11,13 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -27,6 +29,7 @@ class UsbGpsService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val NOTIFICATION_CHANNEL_ID = "gps_usb_channel"
         private const val TCP_PORT = 12345
+        private const val PC_PORT = 54321
         
         // 服务命令相关常量
         const val ACTION_START_SERVICE = "com.example.gps_usb.START_SERVICE"
@@ -44,6 +47,10 @@ class UsbGpsService : Service() {
     // 状态
     private var isServiceRunning = false
     private var clientCount = 0
+    private var lastLocation: Location? = null
+    
+    // 广播发送器
+    private lateinit var localBroadcastManager: LocalBroadcastManager
     
     // JSON 序列化
     private val gson = Gson()
@@ -51,8 +58,12 @@ class UsbGpsService : Service() {
     override fun onCreate() {
         super.onCreate()
         
+        // 初始化广播管理器
+        localBroadcastManager = LocalBroadcastManager.getInstance(this)
+        
         // 创建GPS位置提供者
         gpsLocationProvider = GpsLocationProvider(this) { location ->
+            lastLocation = location
             processLocation(location)
         }
         
@@ -63,6 +74,31 @@ class UsbGpsService : Service() {
         ) { newClientCount ->
             clientCount = newClientCount
             updateNotification()
+            
+            // 发送客户端数量变化的广播
+            sendDataSentBroadcast()
+            
+            // 如果有客户端连接，并且已有位置信息，立即发送一次
+            if (newClientCount > 0 && lastLocation != null) {
+                processLocation(lastLocation!!)
+            }
+        }
+        
+        // 启动状态通知定时器
+        startStatusUpdates()
+    }
+    
+    /**
+     * 启动定时状态更新
+     */
+    private fun startStatusUpdates() {
+        serviceScope.launch {
+            while (true) {
+                delay(2000) // 每2秒更新一次状态
+                if (isServiceRunning) {
+                    sendDataSentBroadcast()
+                }
+            }
         }
     }
     
@@ -124,7 +160,36 @@ class UsbGpsService : Service() {
             
             // 发送到所有连接的客户端
             localTcpServerManager.sendDataToClients(jsonData)
+            
+            // 发送GPS数据更新广播
+            sendGpsDataBroadcast(location)
+            
+            // 发送数据传输状态广播
+            sendDataSentBroadcast()
         }
+    }
+    
+    /**
+     * 发送GPS数据更新广播
+     */
+    private fun sendGpsDataBroadcast(location: Location) {
+        val intent = Intent(MainActivity.ACTION_GPS_DATA_UPDATED).apply {
+            putExtra(MainActivity.EXTRA_LATITUDE, location.latitude)
+            putExtra(MainActivity.EXTRA_LONGITUDE, location.longitude)
+            putExtra(MainActivity.EXTRA_ACCURACY, location.accuracy)
+            putExtra(MainActivity.EXTRA_TIMESTAMP, location.time)
+        }
+        localBroadcastManager.sendBroadcast(intent)
+    }
+    
+    /**
+     * 发送数据传输状态广播
+     */
+    private fun sendDataSentBroadcast() {
+        val intent = Intent(MainActivity.ACTION_DATA_SENT).apply {
+            putExtra(MainActivity.EXTRA_CLIENTS_COUNT, clientCount)
+        }
+        localBroadcastManager.sendBroadcast(intent)
     }
     
     /**
@@ -142,7 +207,7 @@ class UsbGpsService : Service() {
         
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("GPS Over USB")
-            .setContentText("正在运行 | 端口: $TCP_PORT | 客户端: $clientCount")
+            .setContentText("正在运行 | 设备端口: $TCP_PORT | PC端口: $PC_PORT | 客户端: $clientCount")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation) // 使用系统图标作为临时图标
             .setContentIntent(pendingIntent)
             .setOngoing(true)

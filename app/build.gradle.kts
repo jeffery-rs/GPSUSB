@@ -45,6 +45,9 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.cardview:cardview:1.0.0")
     
+    // 本地广播
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+    
     // 位置服务
     implementation("com.google.android.gms:play-services-location:21.1.0")
     

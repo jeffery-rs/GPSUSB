@@ -26,8 +26,8 @@ class GpsLocationProvider(
     private val fusedLocationClient: FusedLocationProviderClient = 
         LocationServices.getFusedLocationProviderClient(context)
     
-    private val locationRequest = LocationRequest.Builder(5000L) // 5秒更新一次
-        .setMinUpdateIntervalMillis(2000L) // 最快2秒更新一次
+    private val locationRequest = LocationRequest.Builder(1000L) // 1秒更新一次
+        .setMinUpdateIntervalMillis(1000L) // 最快1秒更新一次
         .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
         .build()
     
