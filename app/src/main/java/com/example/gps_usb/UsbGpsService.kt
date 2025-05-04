@@ -145,10 +145,16 @@ class UsbGpsService : Service() {
      */
     private fun processLocation(location: Location) {
         serviceScope.launch {
+            // 确定经纬度方向
+            val latDirection = if (location.latitude >= 0) "N" else "S"
+            val longDirection = if (location.longitude >= 0) "E" else "W"
+            
             // 转换为GpsData对象
             val gpsData = GpsData(
                 latitude = location.latitude,
                 longitude = location.longitude,
+                latitudeDirection = latDirection,
+                longitudeDirection = longDirection,
                 timestamp = location.time,
                 accuracy = location.accuracy,
                 speed = if (location.hasSpeed()) location.speed else null,

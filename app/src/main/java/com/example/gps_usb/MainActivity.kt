@@ -18,6 +18,7 @@ import android.content.IntentFilter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.lang.Math
 
 /**
  * 主活动，用于控制GPS USB服务并显示状态
@@ -61,10 +62,27 @@ class MainActivity : ComponentActivity() {
                     val accuracy = intent.getFloatExtra(EXTRA_ACCURACY, 0f)
                     val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, 0L)
                     
+                    // 确定经纬度方向
+                    val latDirection = if (latitude >= 0) "北纬" else "南纬"
+                    val longDirection = if (longitude >= 0) "东经" else "西经"
+                    
+                    // 使用绝对值显示
+                    val absLatitude = Math.abs(latitude)
+                    val absLongitude = Math.abs(longitude)
+                    
+                    // 格式化为度分秒
+                    val latDegrees = absLatitude.toInt()
+                    val latMinutes = ((absLatitude - latDegrees) * 60).toInt()
+                    val latSeconds = ((absLatitude - latDegrees - latMinutes / 60.0) * 3600).toInt()
+                    
+                    val longDegrees = absLongitude.toInt()
+                    val longMinutes = ((absLongitude - longDegrees) * 60).toInt()
+                    val longSeconds = ((absLongitude - longDegrees - longMinutes / 60.0) * 3600).toInt()
+                    
                     val time = dateFormat.format(Date(timestamp))
                     gpsInfoTextView.text = "GPS信息：\n" +
-                            "纬度：$latitude\n" +
-                            "经度：$longitude\n" +
+                            "$latDirection ${latDegrees}°${latMinutes}′${latSeconds}″ (${String.format("%.6f", absLatitude)})\n" +
+                            "$longDirection ${longDegrees}°${longMinutes}′${longSeconds}″ (${String.format("%.6f", absLongitude)})\n" +
                             "精度：${accuracy}米\n" +
                             "时间：$time"
                 }
